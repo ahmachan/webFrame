@@ -1,5 +1,13 @@
 #coding:UTF-8
 
+"""
+一个基于python的web框架
+该框架仅仅使用一个py文件，目标为轻量级框架
+@author:yubang
+时间：2015-02-25
+"""
+
+
 from SocketServer import ThreadingTCPServer, StreamRequestHandler
 import traceback,time,json,hashlib,re
 
