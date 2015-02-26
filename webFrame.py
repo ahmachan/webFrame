@@ -9,7 +9,7 @@
 
 
 from SocketServer import ThreadingTCPServer, StreamRequestHandler
-import traceback,time,json,hashlib,re
+import traceback,time,json,hashlib,re,urllib
 
 handleMethod=None
 sessionKey="sessionId"
@@ -148,7 +148,8 @@ class Request():
             for temp in t:
                 tt=temp.split("=")
                 if(len(tt)==2):
-                    self.GET[tt[0]]=tt[1]
+                    tt[1]=urllib.unquote(tt[1])
+                    self.GET[tt[0]]=tt[1].decode("UTF-8")
     
     def __getPostArgvs(self):
         "获取post参数"
@@ -183,6 +184,8 @@ class Response():
         self.__sessionKey=sessionKey
         self.__setcookies=[]
     def write(self,data):
+        if(type(data).__name__=="unicode"):
+            data=data.encode("UTF-8")
         self.__data=self.__data+str(data)
     def getData(self):
         return self.__data
@@ -268,7 +271,25 @@ def testMethod(request,response):
     #response.write(time.time())
     #response.setCookie("test","debug")
     #request.setSession("abc","123")
-    response.write(request.POST.get("abc","unknow"))
+    #response.write(request.POST.get("abc","unknow"))
+    html="""
+        <!DOCTYPE html>
+        <html>
+            <head>
+                <meta charset="UTF-8">
+                <title>欢迎页</title>
+            </head>
+            <body>
+                <p>get参数：{{get}}</p>
+                <p>说明：{{text}}</p>
+            </body>
+        </html>
+    """
+    html=html.replace("{{get}}",request.GET.get("t",u"没有参数！").encode("UTF-8"))
+    html=html.replace("{{text}}","webFrame框架制作！")
+    response.write(html)
+    #response.write(request.GET.get("t",""))
+    #response.write("hello world!")
     return response
     
 if __name__ == "__main__":
