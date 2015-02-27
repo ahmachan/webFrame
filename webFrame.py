@@ -9,6 +9,8 @@
 
 
 from SocketServer import ThreadingTCPServer, StreamRequestHandler
+from cStringIO import StringIO
+from wsgiref.simple_server import make_server
 import traceback,time,json,hashlib,re,urllib
 
 handleMethod=None
@@ -196,6 +198,7 @@ class Response():
         self.__status[2]=arr[1]
     def getHeaders(self):
         self.META['Date']=time.strftime("%a, %d %b %Y %H:%M:%S GMT")
+        self.META['Content-Length']=str(len(self.__data))
         arrs=[]
         for temp in self.META:
             arrs.append([temp,self.META[temp]])
@@ -266,11 +269,13 @@ def init(method):
     server.serve_forever()
 
 
+    
+#测试函数    
 def testMethod(request,response):
     #response.write(request.COOKIES.get("test","unknow"))
     #response.write(time.time())
-    #response.setCookie("test","debug")
-    #request.setSession("abc","123")
+    response.setCookie("test","debug")
+    request.setSession("abc","123")
     #response.write(request.POST.get("abc","unknow"))
     html="""
         <!DOCTYPE html>
@@ -291,6 +296,69 @@ def testMethod(request,response):
     #response.write(request.GET.get("t",""))
     #response.write("hello world!")
     return response
+ 
+    
+"""
+-------------------------------------
+wsgi开发
+-------------------------------------
+"""
+#wsgi开发
+def application(environ,start_response):
+    global useHandleMethod
+    dict={}
+    
+    try:
+        length= int(environ.get('CONTENT_LENGTH','0'))
+        body= StringIO(environ['wsgi.input'].read(length))
+        dict['postArgv']=body
+    except:
+        dict['postArgv']=""
+    dict['path']=environ['PATH_INFO']+"?"+environ['QUERY_STRING']
+    dict['method']=environ['REQUEST_METHOD']
+    dict['Cookie']=environ.get('HTTP_COOKIE',"")
+    
+    response=Response()
+    request=Request(dict,response)
+    useHandleMethod(request,response)
+    
+    result=response.getStatus()
+    status=result[1]+" "+result[2]
+    
+    body = response.getData()
+    
+    result=[]
+    results=response.getHeaders()
+    for temp in results:
+        result.append((temp[0],temp[1]))
+    response_headers = result
+    start_response(status, response_headers)
+    return [body]
+
+    
+def wsgiInit(method):
+    global handleMethod,cache
+    handleMethod=method
+    cache=Cache("simple")
+    
+    httpd = make_server('localhost', 8000, application)
+    httpd.serve_forever()
+
+
+"""
+---------------------
+对外接口
+---------------------
+"""
+def useWsgi(environ,start_response,method):
+    global handleMethod,cache
+    handleMethod=method
+    cache=Cache("simple")
+    return application(environ,start_response)
     
 if __name__ == "__main__":
-    init(testMethod)
+    #ThreadingTCPServer
+    #init(testMethod)
+    
+    #wsgi
+    wsgiInit(testMethod)
