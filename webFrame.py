@@ -157,11 +157,11 @@ class Request():
         "获取post参数"
         self.POST={}
         if(self.__dict.has_key("postArgv")):
-            temps=self.__dict['postArgv'].split("&")
+            temps=str(self.__dict['postArgv']).split("&")
             for temp in temps:
                 t=temp.split("=")
                 if(len(t)==2):
-                    self.POST[t[0]]=t[1]
+                    self.POST[t[0]]=t[1].decode("UTF-8")
             
         
     def setSession(self,key,value,timeout=3600):
@@ -199,6 +199,8 @@ class Response():
     def getHeaders(self):
         self.META['Date']=time.strftime("%a, %d %b %Y %H:%M:%S GMT")
         self.META['Content-Length']=str(len(self.__data))
+        if(not self.META.has_key('Content-Type')):
+            self.META['Content-Type']="text/html"
         arrs=[]
         for temp in self.META:
             arrs.append([temp,self.META[temp]])
@@ -225,6 +227,7 @@ class MyStreamRequestHandlerr(StreamRequestHandler):
                 if(data==None or data == ''):
                     if(self.__dict['method']=="POST"):
                         self.__dict['postArgv']=self.rfile.read(int(self.__dict['Content-Length']))
+                        self.__dict['postArgv']=urllib.unquote(self.__dict['postArgv'].encode("UTF-8"))
                         break
                     else:
                         break
@@ -262,7 +265,7 @@ def init(method):
     handleMethod=method
     cache=Cache("simple")
     host = "127.0.0.1"
-    port = 8000    #端口
+    port = 8080    #端口
     addr = (host, port)
     #监听端口
     server = ThreadingTCPServer(addr, MyStreamRequestHandlerr)
