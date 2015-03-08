@@ -9,7 +9,7 @@
 
 
 from SocketServer import ThreadingTCPServer, StreamRequestHandler
-from cStringIO import StringIO
+from cgi import parse_qs
 from wsgiref.simple_server import make_server
 import traceback,time,json,hashlib,re,urllib
 
@@ -98,30 +98,32 @@ def getRequestFromUser(string,dict):
         dict[strs[0]]=strs[1]
     return dict
     
-class Request():
+class Request(object):
     "封装请求类"
-    COOKIES={}
-    method=None
     def __init__(self,dict,response):
+        self.COOKIES={}
+        self.SESSIONS={}
+        self.method=None
         self.__response=response
         self.__dict=dict
         self.__oldCookies={}
         self.__oldSessions={}
         self.__handleCookie(dict.get("Cookie",""))
+        
         #获取session
         global sessionKey,cache
         self.__cache=cache
         self.__sessionKey=sessionKey
         
         if(self.COOKIES.has_key(sessionKey)):
-            self.__SESSIONS=cache.get(self.COOKIES[sessionKey])
-            if(self.__SESSIONS==None):
-                self.__SESSIONS={}
+            self.SESSIONS=cache.get(self.COOKIES[sessionKey])
+            if(self.SESSIONS==None):
+                self.SESSIONS={}
             else:
-                self.__SESSIONS=json.loads(self.__SESSIONS)
+                self.SESSIONS=json.loads(self.SESSIONS)
         else:
-            self.__SESSIONS={}
-            
+            self.SESSIONS={}
+        
         self.method=dict['method']
         self.__getGetArgvs()
         self.__getPostArgvs()
@@ -171,14 +173,13 @@ class Request():
             self.__response.setCookie(self.__sessionKey,sessionIdValue,timeout)
         else:
             sessionIdValue=self.COOKIES[self.__sessionKey]
-        self.__SESSIONS[key]=value
-        self.__cache.set(sessionIdValue,json.dumps(self.__SESSIONS))
-        
+        self.SESSIONS[key]=value
+        self.__cache.set(sessionIdValue,json.dumps(self.SESSIONS))
 class Response():
     "封装输出类"
-    META={}
     def __init__(self):
         global sessionKey
+        self.META={}
         self.META['server']="webFrame 1.0(bate)"
         self.META['Content-Type']="text/html;charset=utf-8"
         self.__data=""
@@ -265,7 +266,7 @@ def init(method):
     handleMethod=method
     cache=Cache("simple")
     host = "127.0.0.1"
-    port = 8080    #端口
+    port = 8000    #端口
     addr = (host, port)
     #监听端口
     server = ThreadingTCPServer(addr, MyStreamRequestHandlerr)
@@ -312,9 +313,16 @@ def application(environ,start_response):
     dict={}
     
     try:
-        length= int(environ.get('CONTENT_LENGTH','0'))
-        body= StringIO(environ['wsgi.input'].read(length))
-        dict['postArgv']=body
+        length=int(environ.get('CONTENT_LENGTH',0))
+        body= parse_qs(environ['wsgi.input'].read(length))
+        dict['postArgv']=""
+        index=0
+        for temp in body:
+            if(index!=0):
+                dict['postArgv']=dict['postArgv']+"&"
+            dict['postArgv']=dict['postArgv']+temp+"="+body[temp][0]
+            index=index+1
+        print dict['postArgv']
     except:
         dict['postArgv']=""
     dict['path']=environ['PATH_INFO']+"?"+environ['QUERY_STRING']
@@ -324,7 +332,6 @@ def application(environ,start_response):
     response=Response()
     request=Request(dict,response)
     useHandleMethod(request,response)
-    
     result=response.getStatus()
     status=result[1]+" "+result[2]
     
