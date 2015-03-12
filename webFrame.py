@@ -163,7 +163,7 @@ class Request(object):
             for temp in temps:
                 t=temp.split("=")
                 if(len(t)==2):
-                    self.POST[t[0]]=t[1].decode("UTF-8")
+                    self.POST[t[0]]=urllib.unquote(t[1]).decode("UTF-8")
             
         
     def setSession(self,key,value,timeout=3600):
@@ -219,6 +219,7 @@ class MyStreamRequestHandlerr(StreamRequestHandler):
     def __init(self):
         "初始化"
         self.__dict={'ip':self.client_address}
+        self.__dict['postArgv']={}
     def __readData(self):
         "读取数据"
         index=0
@@ -228,7 +229,6 @@ class MyStreamRequestHandlerr(StreamRequestHandler):
                 if(data==None or data == ''):
                     if(self.__dict['method']=="POST"):
                         self.__dict['postArgv']=self.rfile.read(int(self.__dict['Content-Length']))
-                        self.__dict['postArgv']=urllib.unquote(self.__dict['postArgv'].encode("UTF-8"))
                         break
                     else:
                         break
@@ -261,10 +261,13 @@ class MyStreamRequestHandlerr(StreamRequestHandler):
         self.__writeData(response)
 
 #初始化函数
-def init(method):
+def init(method,cacheObj=None):
     global handleMethod,cache
     handleMethod=method
-    cache=Cache("simple")
+    if(cacheObj==None):
+        cache=Cache("simple")
+    else:
+        cache=cacheObj
     host = "127.0.0.1"
     port = 8000    #端口
     addr = (host, port)
@@ -291,6 +294,12 @@ def testMethod(request,response):
             <body>
                 <p>get参数：{{get}}</p>
                 <p>说明：{{text}}</p>
+                <form action="" method="post" enctype="multipart/form-data">
+                    
+                    <input type="file" name="test">
+                    <input type="hidden" name="hi" value="123">
+                    <input type="submit">
+                </form>
             </body>
         </html>
     """
@@ -320,7 +329,7 @@ def application(environ,start_response):
         for temp in body:
             if(index!=0):
                 dict['postArgv']=dict['postArgv']+"&"
-            dict['postArgv']=dict['postArgv']+temp+"="+body[temp][0]
+            dict['postArgv']=dict['postArgv']+temp+"="+urllib.quote(body[temp][0])
             index=index+1
         print dict['postArgv']
     except:
@@ -346,10 +355,13 @@ def application(environ,start_response):
     return [body]
 
     
-def wsgiInit(method):
+def wsgiInit(method,cacheObj=None):
     global handleMethod,cache
     handleMethod=method
-    cache=Cache("simple")
+    if(cacheObj==None):
+        cache=Cache("simple")
+    else:
+        cache=cacheObj
     
     httpd = make_server('localhost', 8000, application)
     httpd.serve_forever()
@@ -360,10 +372,13 @@ def wsgiInit(method):
 对外接口
 ---------------------
 """
-def useWsgi(environ,start_response,method):
+def useWsgi(environ,start_response,method,cacheObj=None):
     global handleMethod,cache
     handleMethod=method
-    cache=Cache("simple")
+    if(cacheObj==None):
+        cache=Cache("simple")
+    else:
+        cache=cacheObj
     return application(environ,start_response)
     
 if __name__ == "__main__":
